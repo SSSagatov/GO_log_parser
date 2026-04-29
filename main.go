@@ -15,20 +15,30 @@ func main() {
 	}
 	defer file.Close()
 
-	outFile, err := os.OpenFile("errors.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	outFile := os.Args[1]
+
+	result, err := os.OpenFile(outFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Println("[ERROR]: cannot open file errors.log")
+		fmt.Printf("[ERROR]: cannot open file: %s", outFile)
 		return
 	}
-	defer outFile.Close()
+	defer result.Close()
 
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if strings.Contains(line, "[error]") {
-			outFile.WriteString(line + "\n")
+		if outFile == "error.log" {
+			if strings.Contains(line, "[error]") {
+				result.WriteString(line + "\n")
+			}
+		}
+
+		if outFile == "notice.log" {
+			if strings.Contains(line, "[notice]") {
+				result.WriteString(line + "\n")
+			}
 		}
 
 	}
