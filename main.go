@@ -4,43 +4,26 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 )
 
 func main() {
 	days := map[int]string{
-		1: "Monday",
-		2: "Tuesday",
-		3: "Wednesday",
-		4: "Thursday",
-		5: "Friday",
-		6: "Saturday",
-		7: "Sunday",
+		1: "Mon",
+		2: "Tue",
+		3: "Wed",
+		4: "Thu",
+		5: "Fri",
+		6: "Sat",
+		7: "Sun",
 	}
 
-	var outFile string
 	var wg sync.WaitGroup
 
-	if os.Args[1] == "level" {
-		outFile = os.Args[2]
-		if outFile != "level notice" && outFile != "level error" {
-			fmt.Println("[ERROR]: No such command.\n\n[EXAMPLE]:\ngo run main.go level error.log\ngo run main.go level notice.log")
-			return
-		}
-	}
-
-	if os.Args[1] == "date" {
-		outFile = os.Args[2]
-		for _, v := range days {
-			if outFile != v {
-				fmt.Println("[ERROR]: no such date.\n\n[ALLOWED]:\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday\n\n[EXAMPLE]:\ngo run main.go date Monday")
-				return
-			}
-		}
-		wg.Add(1)
-		go timeParser(wg, outFile)
-	}
+	modifier := os.Args[1]
+	outFile := os.Args[2]
 
 	file, err := os.Open("logs.log")
 	if err != nil {
@@ -56,21 +39,33 @@ func main() {
 	}
 	defer result.Close()
 
+	if modifier == "level" {
+		if outFile != "notice.log" && outFile != "error.log" {
+			fmt.Println("[ERROR]: No such command.\n\n[EXAMPLE]:\ngo run main.go level error.log\ngo run main.go level notice.log")
+			return
+		}
+		wg.Add(1)
+		go errorNoticeParser(&wg, file, result, outFile)
+	}
+
+	if modifier == "date" {
+		for _, v := range days {
+			if outFile != v {
+				fmt.Println("[ERROR]: no such date.\n\n[ALLOWED]:\nMonday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday\n\n[EXAMPLE]:\ngo run main.go date Monday")
+				return
+			}
+		}
+		wg.Add(1)
+		go dayParser(&wg, file, result, outFile)
+	}
+
 	wg.Wait()
 
+	fmt.Println("[SUCCESS]: file successfuly parsed!")
 }
 
-// func openFileHelper(input string) {
-// 	outFile, err := os.OpenFile(input, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-// 	if err != nil {
-// 		fmt.Printf("[ERROR]: cannot open file: %s", input)
-// 		return
-// 	}
-// 	defer outFile.Close()
-
-// }
-
-func errorNoticeParser(file, result *os.File, level string) {
+func errorNoticeParser(wg *sync.WaitGroup, file, result *os.File, level string) {
+	defer wg.Done()
 
 	scanner := bufio.NewScanner(file)
 
@@ -84,7 +79,7 @@ func errorNoticeParser(file, result *os.File, level string) {
 		}
 
 		if level == "notice.log" {
-			if strings.Contains(line, "notice") {
+			if strings.Contains(line, "[notice]") {
 				result.WriteString(line + "\n")
 			}
 		}
@@ -95,7 +90,52 @@ func errorNoticeParser(file, result *os.File, level string) {
 	}
 }
 
-func timeParser(wg sync.WaitGroup, day string) {
+func dayParser(wg *sync.WaitGroup, file, result *os.File, day string) {
 	defer wg.Done()
 
+	days := map[int]string{
+		1: "Mon",
+		2: "Tue",
+		3: "Wed",
+		4: "Thu",
+		5: "Fri",
+		6: "Sat",
+		7: "Sun",
+	}
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		for _, v := range days {
+			if v == day {
+				if strings.Contains(line, day) {
+					result.WriteString(line + "\n")
+				}
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("[ERROR]: failed to read file", err)
+	}
+}
+
+func yearParser(wg *sync.WaitGroup, file, result *os.File, year int) {
+	strYear := strconv.Itoa(year)
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if strings.Contains(line, strYear) {
+			result.WriteString(line + "\n")
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("[ERROR]: failed to read file", err)
+	}
 }
